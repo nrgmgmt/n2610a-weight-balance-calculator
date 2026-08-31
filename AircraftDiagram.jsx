@@ -1,17 +1,17 @@
-import tripacerImg from "./tripacer-diagram.png";
-
 /**
  * Top-down Piper Tri-Pacer diagram — uses the user's own transparent-
- * background aircraft image, imported as a local project asset (so it
- * gets bundled, hashed, and served from the same origin/CDN as the
- * rest of the site by Horizons' own build pipeline, instead of an
- * external URL) — with the loading-station zones overlaid on top.
+ * background aircraft image, served as a plain static asset from the
+ * project's public/ folder (same-origin, no external dependency), with
+ * the loading-station zones overlaid on top.
  *
- * IMPORTANT: place tripacer-diagram.png in the SAME FOLDER as this
- * component file (e.g. src/components/tripacer-diagram.png next to
- * src/components/AircraftDiagram.jsx). If you put it somewhere else,
- * update the import path above to match.
+ * IMPORTANT: place tripacer-diagram.png directly in the project's
+ * public/ folder (e.g. public/tripacer-diagram.png). This is a plain
+ * runtime path, not a JS import — if the file is ever missing, only
+ * the image fails to load (broken image icon), the site build itself
+ * will never break because of it.
  */
+const TRIPACER_IMG_PATH = "/tripacer-diagram.png";
+
 export default function AircraftDiagram() {
   const CX = 224; // fuselage centerline (matches the source image's geometry)
   const mx = (x) => 2 * CX - x; // mirror an x coordinate about the centerline
@@ -19,7 +19,7 @@ export default function AircraftDiagram() {
   return (
     <svg viewBox="0 0 430 305" xmlns="http://www.w3.org/2000/svg" className="wbc-diagram-svg">
       {/* ===================== AIRCRAFT IMAGE ===================== */}
-      <image href={tripacerImg} x="0" y="0" width="430" height="305" preserveAspectRatio="xMidYMid meet" />
+      <image href={TRIPACER_IMG_PATH} x="0" y="0" width="430" height="305" preserveAspectRatio="xMidYMid meet" />
 
       {/* ===================== FUNCTIONAL LOADING ZONES ===================== */}
 
