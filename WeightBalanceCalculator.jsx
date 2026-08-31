@@ -1,17 +1,27 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
+import AircraftDiagram from "./AircraftDiagram";
 
 /**
  * Piper PA-22/135 Tri-Pacer (N2610A) Weight & Balance Calculator
- * Self-contained React component — no external CSS/JS dependencies.
- * Drop this file into your project (e.g. src/components/WeightBalanceCalculator.jsx)
- * and render <WeightBalanceCalculator /> on any page/route.
+ * Self-contained React component — no external CSS/JS dependencies
+ * besides AircraftDiagram.jsx (also provided, same folder).
+ * Drop both files into your project (e.g. src/components/) and render
+ * <WeightBalanceCalculator /> on any page/route.
  */
 
-const ARMS = { front: 81.0, fuel: 84.0, rear: 109.0, baggage: 127.0 };
+const ARMS = {
+  pilot: 81.0,
+  copilot: 81.0,
+  leftTank: 84.0,
+  rightTank: 84.0,
+  rear1: 109.0,
+  rear2: 109.0,
+  baggage: 127.0,
+};
 const EMPTY = { weight: 1138.0, arm: 70.87, moment: 80643.0 };
 const MAX_GROSS = 1950;
-const MAX_FUEL_GAL = 36;
+const MAX_TANK_GAL = 18; // per side, 36 total
 const MAX_BAGGAGE = 100;
 
 // Envelope polygon in (cg, weight) space
@@ -131,10 +141,63 @@ function EnvelopeChart({ cg, weight, ok, idSuffix = "" }) {
   );
 }
 
+function WeightField({ label, value, onChange, id }) {
+  return (
+    <div className="wbc-wfield">
+      <label htmlFor={id}>{label}</label>
+      <div className="wbc-wfield-input">
+        <input
+          id={id}
+          className="wbc-num"
+          type="number"
+          min="0"
+          step="1"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="0"
+        />
+        <span className="wbc-wfield-unit">lbs</span>
+      </div>
+    </div>
+  );
+}
+
+function TankSlider({ label, gal, onChange, id }) {
+  const w = Math.min(MAX_TANK_GAL, Math.max(0, gal || 0)) * 6;
+  return (
+    <div className="wbc-tank">
+      <div className="wbc-tank-head">
+        <label htmlFor={id}>{label}</label>
+        <span className="wbc-tank-readout">
+          {fmt(gal || 0, 1)} gal <span className="wbc-tank-arrow">&rarr;</span> {fmt(w, 0)} lbs
+        </span>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min="0"
+        max={MAX_TANK_GAL}
+        step="0.5"
+        value={Math.min(MAX_TANK_GAL, Math.max(0, gal || 0))}
+        onChange={(e) => onChange(e.target.value)}
+        className="wbc-slider"
+      />
+      <div className="wbc-tank-scale">
+        <span>0</span>
+        <span>{MAX_TANK_GAL / 2}</span>
+        <span>{MAX_TANK_GAL} gal max</span>
+      </div>
+    </div>
+  );
+}
+
 export default function WeightBalanceCalculator() {
-  const [frontW, setFrontW] = useState("");
-  const [fuelGal, setFuelGal] = useState("");
-  const [rearW, setRearW] = useState("");
+  const [pilotW, setPilotW] = useState("");
+  const [copilotW, setCopilotW] = useState("");
+  const [leftGal, setLeftGal] = useState("");
+  const [rightGal, setRightGal] = useState("");
+  const [rear1W, setRear1W] = useState("");
+  const [rear2W, setRear2W] = useState("");
   const [bagW, setBagW] = useState("");
   const [pilotName, setPilotName] = useState("");
   const [flightDate, setFlightDate] = useState("");
@@ -144,39 +207,51 @@ export default function WeightBalanceCalculator() {
   const num = (v) => Math.max(0, parseFloat(v) || 0);
 
   const result = useMemo(() => {
-    const fW = num(frontW);
-    const gal = num(fuelGal);
-    const rW = num(rearW);
+    const pW = num(pilotW);
+    const cW = num(copilotW);
+    const lGal = num(leftGal);
+    const rGal = num(rightGal);
+    const r1W = num(rear1W);
+    const r2W = num(rear2W);
     const bW = num(bagW);
-    const fuelW = gal * 6;
+    const lFuelW = lGal * 6;
+    const rFuelW = rGal * 6;
 
     const rows = [
       { label: "Aircraft Empty Weight", weight: EMPTY.weight, arm: EMPTY.arm, moment: EMPTY.moment, locked: true },
-      { label: "Front Seats (Pilot & Pax)", weight: fW, arm: ARMS.front, moment: fW * ARMS.front },
-      { label: `Fuel (${gal.toFixed(1)} gal @ 6 lbs/gal)`, weight: fuelW, arm: ARMS.fuel, moment: fuelW * ARMS.fuel },
-      { label: "Rear Cabin Station (Seats / Cargo)", weight: rW, arm: ARMS.rear, moment: rW * ARMS.rear },
+      { label: "Pilot", weight: pW, arm: ARMS.pilot, moment: pW * ARMS.pilot },
+      { label: "Co-Pilot", weight: cW, arm: ARMS.copilot, moment: cW * ARMS.copilot },
+      { label: `Left Tank (${lGal.toFixed(1)} gal @ 6 lbs/gal)`, weight: lFuelW, arm: ARMS.leftTank, moment: lFuelW * ARMS.leftTank },
+      { label: `Right Tank (${rGal.toFixed(1)} gal @ 6 lbs/gal)`, weight: rFuelW, arm: ARMS.rightTank, moment: rFuelW * ARMS.rightTank },
+      { label: "Rear Seat 1", weight: r1W, arm: ARMS.rear1, moment: r1W * ARMS.rear1 },
+      { label: "Rear Seat 2", weight: r2W, arm: ARMS.rear2, moment: r2W * ARMS.rear2 },
       { label: "Baggage Compartment", weight: bW, arm: ARMS.baggage, moment: bW * ARMS.baggage },
     ];
 
     const totalWeight = rows.reduce((s, r) => s + r.weight, 0);
     const totalMoment = rows.reduce((s, r) => s + r.moment, 0);
     const cg = totalMoment / totalWeight;
+    const totalFuelGal = lGal + rGal;
 
     const problems = [];
-    if (gal > MAX_FUEL_GAL) problems.push("Fuel exceeds max 36 gal capacity");
+    if (lGal > MAX_TANK_GAL) problems.push("Left tank exceeds 18 gal capacity");
+    if (rGal > MAX_TANK_GAL) problems.push("Right tank exceeds 18 gal capacity");
     if (bW > MAX_BAGGAGE) problems.push("Baggage exceeds 100 lb limit");
     if (totalWeight > MAX_GROSS) problems.push("Over max gross weight (1,950 lbs)");
     const inEnvelope = pointInPolygon([cg, Math.min(totalWeight, 1950)], ENVELOPE) && totalWeight <= MAX_GROSS;
     if (!inEnvelope && totalWeight <= MAX_GROSS) problems.push("CG outside approved envelope");
 
-    return { rows, totalWeight, totalMoment, cg, problems, ok: problems.length === 0 };
-  }, [frontW, fuelGal, rearW, bagW]);
+    return { rows, totalWeight, totalMoment, cg, totalFuelGal, problems, ok: problems.length === 0 };
+  }, [pilotW, copilotW, leftGal, rightGal, rear1W, rear2W, bagW]);
 
   const handleCalculate = () => setCalculated(true);
   const handleReset = () => {
-    setFrontW("");
-    setFuelGal("");
-    setRearW("");
+    setPilotW("");
+    setCopilotW("");
+    setLeftGal("");
+    setRightGal("");
+    setRear1W("");
+    setRear2W("");
     setBagW("");
     setPilotName("");
     setFlightDate("");
@@ -195,9 +270,9 @@ export default function WeightBalanceCalculator() {
 
       <div className="wbc-frame">
         <header className="wbc-masthead">
-          <span className="wbc-tag">N2610A · Piper PA-22/135</span>
+          <span className="wbc-tag">N2610A &middot; Piper PA-22/135</span>
           <h1>Tri-Pacer Weight &amp; Balance Calculator</h1>
-          <div className="wbc-sub">Datum: 60&Prime; forward of wing leading edge · Max Gross Weight: 1,950 lbs</div>
+          <div className="wbc-sub">Datum: 60&Prime; forward of wing leading edge &middot; Max Gross Weight: 1,950 lbs</div>
 
           <div className="wbc-locked-strip">
             <div className="wbc-locked-cell">
@@ -216,7 +291,38 @@ export default function WeightBalanceCalculator() {
         </header>
 
         <main>
-          <div className="wbc-section-title">Loading Stations</div>
+          <div className="wbc-section-title">Aircraft Diagram</div>
+          <div className="wbc-diagram-card">
+            <AircraftDiagram />
+          </div>
+
+          <div className="wbc-section-title">Front Seats</div>
+          <div className="wbc-two-col">
+            <WeightField id="pilotWeight" label="Pilot" value={pilotW} onChange={setPilotW} />
+            <WeightField id="copilotWeight" label="Co-Pilot" value={copilotW} onChange={setCopilotW} />
+          </div>
+
+          <div className="wbc-section-title">Fuel &mdash; Wing Tanks (18 gal each side)</div>
+          <div className="wbc-two-col">
+            <TankSlider id="leftTank" label="Left Tank" gal={leftGal} onChange={setLeftGal} />
+            <TankSlider id="rightTank" label="Right Tank" gal={rightGal} onChange={setRightGal} />
+          </div>
+          <div className="wbc-fuel-total">
+            Total Fuel: <strong>{fmt(num(leftGal) + num(rightGal), 1)} gal</strong> &middot; <strong>{fmt((num(leftGal) + num(rightGal)) * 6, 0)} lbs</strong>
+          </div>
+
+          <div className="wbc-section-title">Rear Cabin</div>
+          <div className="wbc-two-col">
+            <WeightField id="rear1Weight" label="Rear Seat 1" value={rear1W} onChange={setRear1W} />
+            <WeightField id="rear2Weight" label="Rear Seat 2" value={rear2W} onChange={setRear2W} />
+          </div>
+
+          <div className="wbc-section-title">Baggage (max 100 lbs)</div>
+          <div className="wbc-two-col wbc-two-col-single">
+            <WeightField id="baggageWeight" label="Baggage Compartment" value={bagW} onChange={setBagW} />
+          </div>
+
+          <div className="wbc-section-title">Loading Summary</div>
           <table className="wbc-table">
             <thead>
               <tr>
@@ -227,54 +333,16 @@ export default function WeightBalanceCalculator() {
               </tr>
             </thead>
             <tbody>
-              <tr className="wbc-locked-row">
-                <td className="wbc-station-name">Aircraft Empty Weight</td>
-                <td style={{ textAlign: "right" }} className="wbc-arm-val">1,138.0</td>
-                <td style={{ textAlign: "right" }} className="wbc-arm-val">70.87</td>
-                <td style={{ textAlign: "right" }} className="wbc-moment-val">80,643</td>
-              </tr>
-              <tr>
-                <td className="wbc-station-name">Front Seats (Pilot &amp; Pax)</td>
-                <td style={{ textAlign: "right" }}>
-                  <input className="wbc-num" type="number" min="0" step="1" value={frontW}
-                    onChange={(e) => setFrontW(e.target.value)} placeholder="0" />
-                </td>
-                <td style={{ textAlign: "right" }} className="wbc-arm-val">81.0</td>
-                <td style={{ textAlign: "right" }} className="wbc-moment-val">{fmt(num(frontW) * ARMS.front, 0)}</td>
-              </tr>
-              <tr>
-                <td className="wbc-station-name">
-                  Fuel <span className="wbc-station-hint">Main wing tanks · max 36 gal @ 6 lbs/gal</span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <input className="wbc-num" type="number" min="0" max="36" step="0.5" value={fuelGal}
-                    onChange={(e) => setFuelGal(e.target.value)} placeholder="0" />
-                </td>
-                <td style={{ textAlign: "right" }} className="wbc-arm-val">84.0</td>
-                <td style={{ textAlign: "right" }} className="wbc-moment-val">{fmt(num(fuelGal) * 6 * ARMS.fuel, 0)}</td>
-              </tr>
-              <tr>
-                <td className="wbc-station-name">
-                  Rear Cabin Station <span className="wbc-station-hint">seats / cargo</span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <input className="wbc-num" type="number" min="0" step="1" value={rearW}
-                    onChange={(e) => setRearW(e.target.value)} placeholder="0" />
-                </td>
-                <td style={{ textAlign: "right" }} className="wbc-arm-val">109.0</td>
-                <td style={{ textAlign: "right" }} className="wbc-moment-val">{fmt(num(rearW) * ARMS.rear, 0)}</td>
-              </tr>
-              <tr>
-                <td className="wbc-station-name">
-                  Baggage Compartment <span className="wbc-station-hint">max 100 lbs</span>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <input className="wbc-num" type="number" min="0" max="100" step="1" value={bagW}
-                    onChange={(e) => setBagW(e.target.value)} placeholder="0" />
-                </td>
-                <td style={{ textAlign: "right" }} className="wbc-arm-val">127.0</td>
-                <td style={{ textAlign: "right" }} className="wbc-moment-val">{fmt(num(bagW) * ARMS.baggage, 0)}</td>
-              </tr>
+              {result.rows.map((r, i) => (
+                <tr key={i} className={r.locked ? "wbc-locked-row" : ""}>
+                  <td className="wbc-station-name">{r.label}</td>
+                  <td style={{ textAlign: "right" }} className={r.locked ? "wbc-arm-val" : "wbc-moment-val"}>
+                    {fmt(r.weight, r.locked ? 1 : 1)}
+                  </td>
+                  <td style={{ textAlign: "right" }} className="wbc-arm-val">{r.arm.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }} className="wbc-moment-val">{fmt(r.moment, 0)}</td>
+                </tr>
+              ))}
               <tr className="wbc-totals-row">
                 <td>Takeoff Totals</td>
                 <td style={{ textAlign: "right" }} className="wbc-arm-val">{fmt(result.totalWeight, 1)}</td>
@@ -306,9 +374,9 @@ export default function WeightBalanceCalculator() {
               {!calculated ? (
                 <div className="wbc-status-banner idle">Enter loading values and press Calculate.</div>
               ) : result.ok ? (
-                <div className="wbc-status-banner ok">✓ Within weight &amp; CG envelope — safe for takeoff loading as entered.</div>
+                <div className="wbc-status-banner ok">&#10003; Within weight &amp; CG envelope &mdash; safe for takeoff loading as entered.</div>
               ) : (
-                <div className="wbc-status-banner warn">⚠ NOT SAFE: {result.problems.join(" · ")}</div>
+                <div className="wbc-status-banner warn">&#9888; NOT SAFE: {result.problems.join(" &middot; ")}</div>
               )}
             </div>
 
@@ -327,7 +395,7 @@ export default function WeightBalanceCalculator() {
         </main>
 
         <footer className="wbc-foot">
-          Piper PA-22/135 Tri-Pacer · N2610A · For planning reference only — verify against current POH/AFM weight &amp; balance data before flight.
+          Piper PA-22/135 Tri-Pacer &middot; N2610A &middot; For planning reference only &mdash; verify against current POH/AFM weight &amp; balance data before flight.
         </footer>
       </div>
 
@@ -338,8 +406,8 @@ export default function WeightBalanceCalculator() {
       {showPrint && typeof document !== "undefined" && createPortal(
         <div id="wbcPrintReport">
           <div className="wbc-pr-page">
-            <p className="wbc-pr-title">Piper PA-22/135 Tri-Pacer — Weight &amp; Balance Worksheet</p>
-            <p className="wbc-pr-sub">N2610A · Datum: 60&Prime; forward of wing leading edge · Max Gross Weight: 1,950 lbs</p>
+            <p className="wbc-pr-title">Piper PA-22/135 Tri-Pacer &mdash; Weight &amp; Balance Worksheet</p>
+            <p className="wbc-pr-sub">N2610A &middot; Datum: 60&Prime; forward of wing leading edge &middot; Max Gross Weight: 1,950 lbs</p>
             <div className="wbc-pr-meta">
               <span>Pilot: <strong>{pilotName || "—"}</strong></span>
               <span>Date: <strong>{flightDate || "—"}</strong></span>
@@ -425,19 +493,51 @@ const CSS = `
 .wbc-locked-cell .wbc-lbl{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--wbc-steel); }
 .wbc-locked-cell .wbc-val{ font-family:monospace; font-size:20px; font-weight:600; color:var(--wbc-amber); margin-top:4px; }
 .wbc-root main{ padding:28px 34px 10px; }
-.wbc-section-title{ display:flex; align-items:center; gap:12px; margin:8px 0 16px; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--wbc-steel); }
+.wbc-section-title{ display:flex; align-items:center; gap:12px; margin:26px 0 14px; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--wbc-steel); }
 .wbc-section-title::after{ content:""; flex:1; height:1px; background:var(--wbc-hairline); }
+
+.wbc-diagram-card{ background:var(--wbc-panel-bg-2); border:1px solid var(--wbc-hairline); border-radius:12px; padding:16px; color:var(--wbc-steel); }
+.wbc-diagram-svg{ width:100%; height:auto; display:block; max-height:420px; margin:0 auto; }
+.wbc-diagram-label{ font-size:13px; font-weight:700; letter-spacing:.03em; fill:var(--wbc-paper); }
+.wbc-diagram-label-sm{ font-size:11px; }
+.wbc-diagram-label-sub{ font-size:9px; fill:var(--wbc-steel); }
+.wbc-diagram-dim{ font-size:11px; letter-spacing:.1em; fill:var(--wbc-steel); }
+
+.wbc-two-col{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.wbc-two-col-single{ grid-template-columns:1fr; max-width:340px; }
+@media (max-width:640px){ .wbc-two-col{ grid-template-columns:1fr; } }
+
+.wbc-wfield{ background:var(--wbc-panel-bg-2); border:1px solid var(--wbc-hairline); border-radius:10px; padding:14px 16px; }
+.wbc-wfield label{ display:block; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--wbc-steel); margin-bottom:8px; }
+.wbc-wfield-input{ display:flex; align-items:center; gap:8px; }
+.wbc-wfield-unit{ color:var(--wbc-steel); font-size:13px; }
+
+.wbc-tank{ background:var(--wbc-panel-bg-2); border:1px solid var(--wbc-hairline); border-radius:10px; padding:14px 16px; }
+.wbc-tank-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; flex-wrap:wrap; gap:6px; }
+.wbc-tank-head label{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--wbc-steel); }
+.wbc-tank-readout{ font-family:monospace; font-size:14px; color:var(--wbc-amber); font-weight:600; }
+.wbc-tank-arrow{ color:var(--wbc-steel); }
+.wbc-slider{
+  -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:4px;
+  background:linear-gradient(90deg, var(--wbc-amber) 0%, var(--wbc-amber) var(--_p, 0%), var(--wbc-hairline) var(--_p, 0%), var(--wbc-hairline) 100%);
+  outline:none; cursor:pointer;
+}
+.wbc-slider::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%; background:var(--wbc-amber); border:2px solid #0b0e11; cursor:pointer; }
+.wbc-slider::-moz-range-thumb{ width:18px; height:18px; border-radius:50%; background:var(--wbc-amber); border:2px solid #0b0e11; cursor:pointer; }
+.wbc-tank-scale{ display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:var(--wbc-steel); }
+.wbc-fuel-total{ margin-top:10px; text-align:right; color:var(--wbc-steel); font-size:14px; }
+.wbc-fuel-total strong{ color:var(--wbc-amber); font-family:monospace; }
+
 .wbc-table{ width:100%; border-collapse:collapse; background:var(--wbc-panel-bg-2); border-radius:10px; overflow:hidden; border:1px solid var(--wbc-hairline); }
 .wbc-table th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--wbc-steel); font-weight:600; padding:12px 14px; background:#10151a; border-bottom:1px solid var(--wbc-hairline); }
 .wbc-table td{ padding:10px 14px; border-bottom:1px solid var(--wbc-hairline); font-size:15px; vertical-align:middle; }
 .wbc-table tr:last-child td{ border-bottom:none; }
 .wbc-station-name{ color:var(--wbc-paper); font-weight:500; }
-.wbc-station-hint{ display:block; color:var(--wbc-steel); font-size:12px; margin-top:2px; }
-.wbc-num{ width:110px; background:#0e1216; border:1px solid var(--wbc-hairline); color:var(--wbc-amber); font-family:monospace; font-size:16px; padding:8px 10px; border-radius:6px; text-align:right; }
+.wbc-num{ width:100%; background:#0e1216; border:1px solid var(--wbc-hairline); color:var(--wbc-amber); font-family:monospace; font-size:16px; padding:8px 10px; border-radius:6px; text-align:right; }
 .wbc-num:focus{ outline:2px solid var(--wbc-amber); outline-offset:1px; }
 .wbc-arm-val, .wbc-moment-val{ font-family:monospace; color:var(--wbc-paper); font-size:15px; }
 .wbc-moment-val{ color:var(--wbc-steel); }
-.wbc-locked-row td{ color:var(--wbc-steel); }
+.wbc-locked-row td{ color:var(--wbc-steel); font-style:italic; }
 .wbc-totals-row td{ font-weight:700; font-size:16px; color:var(--wbc-paper); background:#171d22; border-top:2px solid var(--wbc-amber-dim); }
 .wbc-totals-row .wbc-moment-val, .wbc-totals-row .wbc-arm-val{ color:var(--wbc-amber); font-weight:700; }
 .wbc-results-grid{ display:grid; grid-template-columns:1.1fr 1fr; gap:22px; margin-top:26px; }
@@ -466,10 +566,6 @@ const CSS = `
 @media print{
   @page{ margin: 0.4in; }
   html, body{ background:#fff !important; margin:0 !important; padding:0 !important; }
-  /* #wbcPrintReport is portaled to be a direct child of <body> — hide every
-     other direct child of body (the rest of the host page) and show only
-     the report, in normal document flow (no fixed/absolute positioning,
-     which repeats or clips unpredictably across printed pages). */
   body > *{ display:none !important; }
   body > #wbcPrintReport{ display:block !important; }
 }
