@@ -79,14 +79,12 @@ export default function AircraftDiagram() {
         <path d="M 246 458 C 246 470, 274 470, 274 458" fill="none" stroke="currentColor" strokeWidth="1.5" />
       </g>
 
-      {/* ---------- functional labeled zones (added, positioned to match
-           the ROTATED airframe: nose/cone now at top, tail lobe at bottom) ---------- */}
+      {/* ---------- functional labeled zones (added ON TOP of the traced
+           airframe, positioned to match it post-rotation: nose/cone now at
+           top, wings in the middle, tail lobe at bottom) ---------- */}
 
-      {/* Cabin insert (not in the reference — added so pilot/rear-seat/baggage
-          zones have somewhere to sit between the nose and the wing panel) */}
-      <path d="M 232 205 L 220 300 L 300 300 L 288 205 Z" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.55" strokeDasharray="3 3" />
-
-      {/* Pilot / Co-Pilot */}
+      {/* Pilot / Co-Pilot — sit on the traced fuselage neck between the
+          nose cone and the wing panel */}
       <rect x="228" y="215" width="28" height="40" fill="#ffb02e" fillOpacity="0.2" stroke="#ffb02e" strokeWidth="1.5" strokeDasharray="4 3" rx="5" />
       <rect x="264" y="215" width="28" height="40" fill="#ffb02e" fillOpacity="0.2" stroke="#ffb02e" strokeWidth="1.5" strokeDasharray="4 3" rx="5" />
       <line x1="150" y1="120" x2="230" y2="220" stroke="#ffb02e" strokeWidth="1" strokeDasharray="2 2" opacity="0.7" />
