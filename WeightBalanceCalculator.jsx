@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Piper PA-22/135 Tri-Pacer (N2610A) Weight & Balance Calculator
@@ -331,7 +332,10 @@ export default function WeightBalanceCalculator() {
       </div>
 
       {/* ===================== PRINT-ONLY PILOT COPY ===================== */}
-      {showPrint && (
+      {/* Rendered via portal directly under <body> so print CSS can reliably
+          hide every OTHER element on the host page (this component is often
+          embedded inline inside a much larger page, not standalone). */}
+      {showPrint && typeof document !== "undefined" && createPortal(
         <div id="wbcPrintReport">
           <div className="wbc-pr-page">
             <p className="wbc-pr-title">Piper PA-22/135 Tri-Pacer — Weight &amp; Balance Worksheet</p>
@@ -385,7 +389,8 @@ export default function WeightBalanceCalculator() {
               and center-of-gravity limits prior to flight.
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -460,10 +465,13 @@ const CSS = `
 #wbcPrintReport{ display:none; }
 @media print{
   @page{ margin: 0.4in; }
-  html, body{ background:#fff; }
-  .wbc-root{ min-height:0; padding:0; background:#fff; }
-  .wbc-frame{ display:none; }
-  #wbcPrintReport{ display:block; }
+  html, body{ background:#fff !important; margin:0 !important; padding:0 !important; }
+  /* #wbcPrintReport is portaled to be a direct child of <body> — hide every
+     other direct child of body (the rest of the host page) and show only
+     the report, in normal document flow (no fixed/absolute positioning,
+     which repeats or clips unpredictably across printed pages). */
+  body > *{ display:none !important; }
+  body > #wbcPrintReport{ display:block !important; }
 }
 .wbc-pr-page{ width:100%; max-width:900px; margin:0 auto; font-family:Arial, Helvetica, sans-serif; color:#111; padding:16px 20px 8px; }
 .wbc-pr-title{ font-size:19px; font-weight:800; text-align:center; margin:0 0 3px; }
