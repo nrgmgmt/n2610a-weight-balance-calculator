@@ -1,16 +1,17 @@
+import tripacerImg from "./tripacer-diagram.png";
+
 /**
  * Top-down Piper Tri-Pacer diagram — uses the user's own transparent-
- * background aircraft image directly (no hand-traced vector outline)
- * with the loading-station zones overlaid on top at the correct
- * positions.
+ * background aircraft image, imported as a local project asset (so it
+ * gets bundled, hashed, and served from the same origin/CDN as the
+ * rest of the site by Horizons' own build pipeline, instead of an
+ * external URL) — with the loading-station zones overlaid on top.
  *
- * Image asset: hosted at TRIPACER_IMG_URL below. Replace that URL with
- * wherever this project's own asset pipeline ends up hosting the file
- * (e.g. move it into src/assets or public/ and import it normally) —
- * the rest of the component does not need to change.
+ * IMPORTANT: place tripacer-diagram.png in the SAME FOLDER as this
+ * component file (e.g. src/components/tripacer-diagram.png next to
+ * src/components/AircraftDiagram.jsx). If you put it somewhere else,
+ * update the import path above to match.
  */
-const TRIPACER_IMG_URL = "https://galaxy-prod.tlcdn.com/gen/ff10f7532db44d39be03fef45ca80811.png";
-
 export default function AircraftDiagram() {
   const CX = 224; // fuselage centerline (matches the source image's geometry)
   const mx = (x) => 2 * CX - x; // mirror an x coordinate about the centerline
@@ -18,7 +19,7 @@ export default function AircraftDiagram() {
   return (
     <svg viewBox="0 0 430 305" xmlns="http://www.w3.org/2000/svg" className="wbc-diagram-svg">
       {/* ===================== AIRCRAFT IMAGE ===================== */}
-      <image href={TRIPACER_IMG_URL} x="0" y="0" width="430" height="305" preserveAspectRatio="xMidYMid meet" />
+      <image href={tripacerImg} x="0" y="0" width="430" height="305" preserveAspectRatio="xMidYMid meet" />
 
       {/* ===================== FUNCTIONAL LOADING ZONES ===================== */}
 
@@ -30,7 +31,7 @@ export default function AircraftDiagram() {
       <text x="90" y="16" textAnchor="middle" className="wbc-diagram-label wbc-diagram-label-sm">PILOT</text>
       <text x="358" y="16" textAnchor="middle" className="wbc-diagram-label wbc-diagram-label-sm">CO-PILOT</text>
 
-      {/* Rear Seat 1 / 2 — moved inward to sit directly behind Pilot / Co-Pilot */}
+      {/* Rear Seat 1 / 2 — sit directly behind Pilot / Co-Pilot */}
       <rect x="206" y="95" width="16" height="26" fill="#5aa9ff" fillOpacity="0.22" stroke="#5aa9ff" strokeWidth="1.25" strokeDasharray="3 2" />
       <rect x="226" y="95" width="16" height="26" fill="#5aa9ff" fillOpacity="0.22" stroke="#5aa9ff" strokeWidth="1.25" strokeDasharray="3 2" />
       <line x1="120" y1="98" x2="204" y2="102" stroke="#5aa9ff" strokeWidth="0.75" strokeDasharray="2 2" opacity="0.8" />
